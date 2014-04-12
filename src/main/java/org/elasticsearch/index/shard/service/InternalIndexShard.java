@@ -370,13 +370,15 @@ public class InternalIndexShard extends AbstractIndexShardComponent implements I
         long startTime = System.nanoTime();
         DocumentMapper docMapper = mapperService.documentMapperWithAutoCreate(source.type());
         ParsedDocument doc = docMapper.parse(source);
-        return new Engine.Create(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime);
+        return new Engine.Create(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime)
+                .chanHaveDuplicates(state != IndexShardState.STARTED);
     }
 
     @Override
     public ParsedDocument create(Engine.Create create) throws ElasticsearchException {
         writeAllowed(create.origin());
         create = indexingService.preCreate(create);
+        create.chanHaveDuplicates(state != IndexShardState.STARTED);
         if (logger.isTraceEnabled()) {
             logger.trace("index [{}][{}]{}", create.type(), create.id(), create.docs());
         }
@@ -391,13 +393,15 @@ public class InternalIndexShard extends AbstractIndexShardComponent implements I
         long startTime = System.nanoTime();
         DocumentMapper docMapper = mapperService.documentMapperWithAutoCreate(source.type());
         ParsedDocument doc = docMapper.parse(source);
-        return new Engine.Index(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime);
+        return new Engine.Index(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime)
+                .canHaveDuplicates(state != IndexShardState.STARTED);
     }
 
     @Override
     public ParsedDocument index(Engine.Index index) throws ElasticsearchException {
         writeAllowed(index.origin());
         index = indexingService.preIndex(index);
+        index.canHaveDuplicates(state != IndexShardState.STARTED);
         try {
             if (logger.isTraceEnabled()) {
                 logger.trace("index [{}][{}]{}", index.type(), index.id(), index.docs());
