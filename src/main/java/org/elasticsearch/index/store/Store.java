@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Adler32;
+import java.util.zip.Checksum;
 
 /**
  */
@@ -646,8 +647,17 @@ public class Store extends AbstractIndexShardComponent implements CloseableIndex
 
         @Override
         public void close() throws IOException {
-            String checksum = Long.toString(out.getChecksum(), Character.MAX_RADIX);
             out.close();
+            String checksum = null;
+            IndexOutput underlying = out;
+            // TODO: cut over to lucene's CRC
+            // *WARNING*: lucene has classes in same o.a.l.store package with very similar names,
+            // but using CRC, not Adler!
+            if (underlying instanceof BufferedChecksumIndexOutput) {
+                Checksum digest = ((BufferedChecksumIndexOutput) underlying).digest();
+                assert digest instanceof Adler32;
+                checksum = Long.toString(digest.getValue(), Character.MAX_RADIX);
+            }
             synchronized (mutex) {
                 StoreFileMetaData md = new StoreFileMetaData(name, metaData.directory().fileLength(name), checksum, metaData.directory());
                 filesMetadata = ImmutableOpenMap.builder(filesMetadata).fPut(name, md).build();
